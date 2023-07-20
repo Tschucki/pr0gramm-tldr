@@ -7,6 +7,8 @@ cd /var/www/tldr.marcelwagner.dev
 
 (php artisan down) || true
 
+php artisan horizon:terminate
+
 git stash
 
 git reset --hard
@@ -14,8 +16,6 @@ git reset --hard
 git pull origin main
 
 composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-
-php artisan ziggy:generate
 
 php artisan clear-compiled
 
