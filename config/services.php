@@ -21,6 +21,16 @@ return [
         'scheme' => 'https',
     ],
 
+    'pr0gramm' => [
+        'cookie' => env('PR0GRAMM_COOKIE'),
+        'username' => env('PR0GRAMM_USERNAME'),
+        'password' => env('PR0GRAMM_PASSWORD'),
+    ],
+
+    'openai' => [
+        'api_key' => env('OPENAI_APIKEY'),
+    ],
+
     'postmark' => [
         'token' => env('POSTMARK_TOKEN'),
     ],
