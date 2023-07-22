@@ -39,13 +39,17 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
      */
     public function handle(): void
     {
-
         $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
 
         /** @var array[] $comments */
         $comments = $postInfo['comments'];
 
         $comment = collect($comments)->firstWhere('id', $this->message->messageId);
+
+        if (! $comment) {
+            return;
+        }
+
         $parentId = $comment['parent'];
 
         $repliedToComment = collect($comments)->firstWhere('id', $parentId);
@@ -54,7 +58,6 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             return;
         }
 
-        // Check if Comment is long enough
         if ($this->commentIsLongEnough($repliedToComment['content'])) {
 
             $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);

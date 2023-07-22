@@ -42,7 +42,7 @@ class SyncMessagesCommand extends Command
             }
 
         } catch (\Throwable $e) {
-            $this->error('Error: ' . $e->getMessage());
+            $this->error('Error: '.$e->getMessage());
 
             return CommandAlias::FAILURE;
         }
