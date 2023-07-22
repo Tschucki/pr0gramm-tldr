@@ -26,7 +26,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        return (string) $this->message->messageId;
+        return (string)$this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -34,46 +34,50 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         $this->message = $message;
     }
 
-    /**
-     * @throws RequestException
-     */
     public function handle(): void
     {
-        $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
+        try {
+            $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
 
-        /** @var array[] $comments */
-        $comments = $postInfo['comments'];
+            /** @var array[] $comments */
+            $comments = $postInfo['comments'];
 
-        $comment = collect($comments)->firstWhere('id', $this->message->messageId);
+            $comment = collect($comments)->firstWhere('id', $this->message->messageId);
 
-        if (! $comment) {
-            return;
-        }
+            if (!$comment) {
+                return;
+            }
 
-        $parentId = $comment['parent'];
+            $parentId = $comment['parent'];
 
-        $repliedToComment = collect($comments)->firstWhere('id', $parentId);
+            $repliedToComment = collect($comments)->firstWhere('id', $parentId);
 
-        if ($this->commentIsMine($repliedToComment)) {
-            return;
-        }
+            if ($this->commentIsMine($repliedToComment)) {
+                return;
+            }
 
-        if ($this->commentIsLongEnough($repliedToComment['content'])) {
+            if ($this->commentIsLongEnough($repliedToComment['content'])) {
 
-            $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);
+                $tldrValue = "TLDR: \n" . $this->getTldrValue($repliedToComment['content']);
 
-        } else {
-            $tldrValue = $this->notLongEnoughText;
-        }
-        /** @var array[] $addCommentResponse */
-        $addCommentResponse = Pr0grammApi::Comment()->add($this->message->itemId, $tldrValue, $this->message->messageId);
+            } else {
+                $tldrValue = $this->notLongEnoughText;
+            }
+            /** @var array[] $addCommentResponse */
+            $addCommentResponse = Pr0grammApi::Comment()->add($this->message->itemId, $tldrValue, $this->message->messageId);
 
-        // Check if Comment was added successfully
-        $commentExists = collect($addCommentResponse['comments'])->firstWhere('id', $addCommentResponse['commentId']);
+            // Check if Comment was added successfully
+            $commentExists = collect($addCommentResponse['comments'])->firstWhere('id', $addCommentResponse['commentId']);
 
-        // Comment exists on item
-        if ($commentExists) {
-            $this->message->update(['repliedToComment' => true, 'tldrValue' => $tldrValue, 'replyCommentId' => $addCommentResponse['commentId']]);
+            // Comment exists on item
+            if ($commentExists) {
+                $this->message->update(['repliedToComment' => true, 'tldrValue' => $tldrValue, 'replyCommentId' => $addCommentResponse['commentId']]);
+            }
+        } catch (RequestException $e) {
+            if ($e->response->failed() && $e->response->status() == 429) {
+                // Rate Limit Reached. Release the Job in 30 seconds back into the queue
+                $this->release(30);
+            }
         }
     }
 
@@ -84,7 +88,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         $response = $client->chat()->create([
             'model' => 'gpt-3.5-turbo',
             'messages' => [
-                ['role' => 'user', 'content' => $this->basePrompt.$comment],
+                ['role' => 'user', 'content' => $this->basePrompt . $comment],
             ],
         ]);
 
