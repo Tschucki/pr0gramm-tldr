@@ -26,7 +26,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        return (string) $this->message->messageId;
+        return (string)$this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -34,57 +34,93 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         $this->message = $message;
     }
 
-    /**
-     * @throws RequestException
-     */
     public function handle(): void
     {
-        $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
+        try {
+            $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
 
-        /** @var array[] $comments */
-        $comments = $postInfo['comments'];
+            /** @var array[] $comments */
+            $comments = $postInfo['comments'];
 
-        $comment = collect($comments)->firstWhere('id', $this->message->messageId);
-        $parentId = $comment['parent'];
+            $comment = collect($comments)->firstWhere('id', $this->message->messageId);
 
-        $repliedToComment = collect($comments)->firstWhere('id', $parentId);
+            if (!$comment) {
+                return;
+            }
 
-        // Check if Comment is long enough
-        if ($this->commentIsLongEnough($repliedToComment['content'])) {
+            $parentId = $comment['parent'];
 
-            $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);
+            $repliedToComment = collect($comments)->firstWhere('id', $parentId);
 
-        } else {
-            $tldrValue = $this->notLongEnoughText;
-        }
-        /** @var array[] $addCommentResponse */
-        $addCommentResponse = Pr0grammApi::Comment()->add($this->message->itemId, $tldrValue, $this->message->messageId);
+            if ($this->commentIsMine($repliedToComment)) {
+                return;
+            }
 
-        // Check if Comment was added successfully
-        $commentExists = collect($addCommentResponse['comments'])->firstWhere('id', $addCommentResponse['commentId']);
+            if ($this->commentIsLongEnough($repliedToComment['content'])) {
 
-        // Comment exists on item
-        if ($commentExists) {
-            $this->message->update(['repliedToComment' => true, 'tldrValue' => $tldrValue, 'replyCommentId' => $addCommentResponse['commentId']]);
+                $tldrValue = "TLDR: \n" . $this->getTldrValue($repliedToComment['content']);
+
+            } else {
+                $tldrValue = $this->notLongEnoughText;
+            }
+            /** @var array[] $addCommentResponse */
+            $addCommentResponse = Pr0grammApi::Comment()->add($this->message->itemId, $tldrValue, $this->message->messageId);
+
+            // Check if Comment was added successfully
+            $commentExists = collect($addCommentResponse['comments'])->firstWhere('id', $addCommentResponse['commentId']);
+
+            // Comment exists on item
+            if ($commentExists) {
+                $this->message->update(['repliedToComment' => true, 'tldrValue' => $tldrValue, 'replyCommentId' => $addCommentResponse['commentId']]);
+            }
+        } catch (RequestException $e) {
+            if ($e->response->failed() && $e->response->status() == 429) {
+                // Rate Limit Reached. Release the Job in 30 seconds back into the queue
+                $this->release(30);
+            }
         }
     }
 
-    protected function getTldrValue(string $comment): string
+    protected function getTldrValue(string $comment): ?string
     {
         $client = OpenAI::client(config('services.openai.api_key'));
 
         $response = $client->chat()->create([
             'model' => 'gpt-3.5-turbo',
             'messages' => [
-                ['role' => 'user', 'content' => $this->basePrompt.$comment],
+                ['role' => 'user', 'content' => $this->basePrompt . $comment],
             ],
         ]);
 
-        return $response->choices[0]->message->content;
+        if ($response->choices[0]->finishReason === 'stop') {
+            return $this->sanitizeContent($response->choices[0]->message->content);
+        } else {
+            $this->fail('Could not create TLDR comment. No stop finish reason.');
+        }
+
+        return null;
     }
 
     protected function commentIsLongEnough(string $comment): bool
     {
         return Str::wordCount($comment) >= 40;
+    }
+
+    protected function sanitizeContent(string $content): string
+    {
+        return $this->replaceAtMentions($content);
+    }
+
+    protected function replaceAtMentions(string $content): string
+    {
+        $pattern = '/@([a-zA-Z0-9_]+)/';
+        $replacement = '$1';
+
+        return preg_replace($pattern, $replacement, $content);
+    }
+
+    protected function commentIsMine(array $comment): bool
+    {
+        return $comment['name'] == config('services.pr0gramm.username', 'TLDR');
     }
 }
