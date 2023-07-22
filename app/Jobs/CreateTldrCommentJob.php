@@ -26,7 +26,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        return (string) $this->message->messageId;
+        return (string)$this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -52,7 +52,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         // Check if Comment is long enough
         if ($this->commentIsLongEnough($repliedToComment['content'])) {
 
-            $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);
+            $tldrValue = "TLDR: \n" . $this->getTldrValue($repliedToComment['content']);
 
         } else {
             $tldrValue = $this->notLongEnoughText;
@@ -76,15 +76,27 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         $response = $client->chat()->create([
             'model' => 'gpt-3.5-turbo',
             'messages' => [
-                ['role' => 'user', 'content' => $this->basePrompt.$comment],
+                ['role' => 'user', 'content' => $this->basePrompt . $comment],
             ],
         ]);
 
-        return $response->choices[0]->message->content;
+        return $this->sanitizeContent($response->choices[0]->message->content);
     }
 
     protected function commentIsLongEnough(string $comment): bool
     {
         return Str::wordCount($comment) >= 40;
+    }
+
+    protected function sanitizeContent(string $content): string
+    {
+        return $this->replaceAtMentions($content);
+    }
+
+    protected function replaceAtMentions(string $content): string
+    {
+        $pattern = '/@([a-zA-Z0-9_]+)/';
+        $replacement = '$1';
+        return preg_replace($pattern, $replacement, $content);
     }
 }
