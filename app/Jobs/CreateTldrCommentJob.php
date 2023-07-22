@@ -26,7 +26,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        return (string)$this->message->messageId;
+        return (string) $this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -39,6 +39,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
      */
     public function handle(): void
     {
+
         $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
 
         /** @var array[] $comments */
@@ -49,10 +50,14 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
         $repliedToComment = collect($comments)->firstWhere('id', $parentId);
 
+        if ($this->commentIsMine($repliedToComment)) {
+            return;
+        }
+
         // Check if Comment is long enough
         if ($this->commentIsLongEnough($repliedToComment['content'])) {
 
-            $tldrValue = "TLDR: \n" . $this->getTldrValue($repliedToComment['content']);
+            $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);
 
         } else {
             $tldrValue = $this->notLongEnoughText;
@@ -69,18 +74,24 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         }
     }
 
-    protected function getTldrValue(string $comment): string
+    protected function getTldrValue(string $comment): ?string
     {
         $client = OpenAI::client(config('services.openai.api_key'));
 
         $response = $client->chat()->create([
             'model' => 'gpt-3.5-turbo',
             'messages' => [
-                ['role' => 'user', 'content' => $this->basePrompt . $comment],
+                ['role' => 'user', 'content' => $this->basePrompt.$comment],
             ],
         ]);
 
-        return $this->sanitizeContent($response->choices[0]->message->content);
+        if ($response->choices[0]->finishReason === 'stop') {
+            return $this->sanitizeContent($response->choices[0]->message->content);
+        } else {
+            $this->fail('Could not create TLDR comment. No stop finish reason.');
+        }
+
+        return null;
     }
 
     protected function commentIsLongEnough(string $comment): bool
@@ -97,6 +108,12 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
     {
         $pattern = '/@([a-zA-Z0-9_]+)/';
         $replacement = '$1';
+
         return preg_replace($pattern, $replacement, $content);
+    }
+
+    protected function commentIsMine(array $comment): bool
+    {
+        return $comment['name'] == config('services.pr0gramm.username', 'TLDR');
     }
 }

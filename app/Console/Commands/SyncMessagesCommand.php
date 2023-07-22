@@ -27,7 +27,10 @@ class SyncMessagesCommand extends Command
 
                 $this->withProgressBar($comments, function ($comment) {
                     // Comment Matches pattern has not been replied to
-                    if ($comment['name'] != 'TLDR' && $comment['blocked'] == false && $this->commentMatchesPattern($comment['message']) && Message::where('messageId', $comment['id'])->where('repliedToComment', true)->doesntExist()) {
+                    if ($comment['name'] != 'TLDR' &&
+                        $comment['blocked'] == false &&
+                        $this->commentMatchesPattern($comment['message']) &&
+                        Message::where('messageId', $comment['id'])->where('repliedToComment', true)->doesntExist()) {
                         Message::firstOrCreate(['messageId' => $comment['id']], $comment);
                     }
                 });
@@ -39,7 +42,7 @@ class SyncMessagesCommand extends Command
             }
 
         } catch (\Throwable $e) {
-            $this->error('Error: '.$e->getMessage());
+            $this->error('Error: ' . $e->getMessage());
 
             return CommandAlias::FAILURE;
         }
