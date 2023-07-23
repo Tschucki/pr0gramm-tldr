@@ -52,7 +52,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
             $repliedToComment = collect($comments)->firstWhere('id', $parentId);
 
-            if ($this->commentIsMine($repliedToComment)) {
+            if (!$repliedToComment || $this->commentIsMine($repliedToComment)) {
                 return;
             }
 
@@ -83,21 +83,30 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     protected function getTldrValue(string $comment): ?string
     {
-        $client = OpenAI::client(config('services.openai.api_key'));
+        try {
+            $client = OpenAI::client(config('services.openai.api_key'));
 
-        $response = $client->chat()->create([
-            'model' => 'gpt-3.5-turbo',
-            'messages' => [
-                ['role' => 'user', 'content' => $this->basePrompt . $comment],
-            ],
-        ]);
+            $response = $client->chat()->create([
+                'model' => 'gpt-3.5-turbo',
+                'messages' => [
+                    ['role' => 'user', 'content' => $this->basePrompt . $comment],
+                ],
+            ]);
 
-        if ($response->choices[0]->finishReason === 'stop') {
-            return $this->sanitizeContent($response->choices[0]->message->content);
-        } else {
-            $this->fail('Could not create TLDR comment. No stop finish reason.');
+            if ($response->choices[0]->finishReason === 'stop') {
+                return $this->sanitizeContent($response->choices[0]->message->content);
+            } else {
+                $this->fail('Could not create TLDR comment. No stop finish reason.');
+            }
+
+        } catch (OpenAI\Exceptions\ErrorException $errorException) {
+            // Model is currently overloaded
+            if ($errorException->getCode() === 503) {
+                $this->release(30);
+            } else {
+                $this->fail($errorException->getMessage());
+            }
         }
-
         return null;
     }
 
