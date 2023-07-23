@@ -26,7 +26,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        return (string)$this->message->messageId;
+        return (string) $this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -44,7 +44,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
             $comment = collect($comments)->firstWhere('id', $this->message->messageId);
 
-            if (!$comment) {
+            if (! $comment) {
                 return;
             }
 
@@ -52,13 +52,13 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
             $repliedToComment = collect($comments)->firstWhere('id', $parentId);
 
-            if (!$repliedToComment || $this->commentIsMine($repliedToComment)) {
+            if (! $repliedToComment || $this->commentIsMine($repliedToComment)) {
                 return;
             }
 
             if ($this->commentIsLongEnough($repliedToComment['content'])) {
 
-                $tldrValue = "TLDR: \n" . $this->getTldrValue($repliedToComment['content']);
+                $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);
 
             } else {
                 $tldrValue = $this->notLongEnoughText;
@@ -89,7 +89,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             $response = $client->chat()->create([
                 'model' => 'gpt-3.5-turbo',
                 'messages' => [
-                    ['role' => 'user', 'content' => $this->basePrompt . $comment],
+                    ['role' => 'user', 'content' => $this->basePrompt.$comment],
                 ],
             ]);
 
@@ -107,6 +107,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
                 $this->fail($errorException->getMessage());
             }
         }
+
         return null;
     }
 
