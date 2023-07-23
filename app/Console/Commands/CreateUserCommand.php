@@ -8,16 +8,25 @@ use Illuminate\Support\Facades\Validator;
 
 class CreateUserCommand extends Command
 {
-    protected $signature = 'pr0:create-user';
+    protected $signature = 'pr0:create-user {name?} {email?} {password?}';
 
     protected $description = 'Create a new user';
 
     public function handle(): int
     {
-        $name = $this->ask('Name');
-        $email = $this->ask('Email');
+        $name = $this->argument('name');
+        $email = $this->argument('email');
+        $password = $this->argument('password');
 
-        $password = $this->secret('Password');
+        if (! $name) {
+            $name = $this->ask('Name');
+        }
+        if (! $email) {
+            $email = $this->ask('Email');
+        }
+        if (! $password) {
+            $password = $this->secret('Password');
+        }
 
         $validations = [
             'name' => 'required|string|max:255',
@@ -37,10 +46,14 @@ class CreateUserCommand extends Command
                 'email' => $email,
                 'password' => \Hash::make($password),
             ]);
+
             $this->info('Done!');
+
         } else {
             $this->error('Validation failed!');
             $this->error($validator->errors()->first());
+
+            return self::FAILURE;
         }
 
         return self::SUCCESS;

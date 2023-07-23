@@ -20,7 +20,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public Message $message;
 
-    private string $basePrompt = 'Bitte fasse den folgenden Kommentar in maximal 100 Worten zusammen (TLDR). Bleibe im gleichen Schreibstil und behalte den Ton des ursprünglichen Kommentars bei. Halte dich aber weiterhin an deine ethischen Richtlinien. Übersetze bei Bedarf den Kommentar ins Deutsche. Lasse Einleitungen wie "Der Kommentar beschreibt..." weg und komme bitte direkt zur Zusammenfassung: ';
+    private string $basePrompt;
 
     private string $notLongEnoughText = 'Der Kommentar ist nicht lang genug. Den Text kannst du selbst zusammenfassen.';
 
@@ -32,6 +32,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
     public function __construct(Message $message)
     {
         $this->message = $message;
+        $this->basePrompt = config('tldr.prompt_template');
     }
 
     public function handle(): void
@@ -107,6 +108,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
                 $this->fail($errorException->getMessage());
             }
         }
+
         return null;
     }
 
