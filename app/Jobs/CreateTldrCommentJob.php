@@ -38,47 +38,32 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
     public function handle(): void
     {
         try {
+            /** @var array[] $postInfo */
             $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
-
-            /** @var array[] $comments */
-            $comments = $postInfo['comments'];
-
-            $comment = collect($comments)->firstWhere('id', $this->message->messageId);
+            $comment = collect($postInfo['comments'])->firstWhere('id', $this->message->messageId);
 
             if (! $comment) {
                 return;
             }
+            /**
+             * @var array $commentToSummarize
+             * */
+            $commentToSummarize = $this->getCommentToSummarize($comment);
 
-            $parentId = $comment['parent'];
-
-            $repliedToComment = collect($comments)->firstWhere('id', $parentId);
-
-            if (! $repliedToComment || $this->commentIsMine($repliedToComment)) {
+            if (! $commentToSummarize || $this->commentIsMine($commentToSummarize)) {
                 return;
             }
 
-            if ($this->commentIsLongEnough($repliedToComment['content'])) {
-
-                $tldrValue = "TLDR: \n".$this->getTldrValue($repliedToComment['content']);
-
+            if ($this->commentIsLongEnough($commentToSummarize['content'])) {
+                $tldrValue = "TLDR: \n".$this->getTldrValue($commentToSummarize['content']);
             } else {
                 $tldrValue = $this->notLongEnoughText;
             }
 
-            if ($tldrValue == null) {
-                return;
+            if ($tldrValue !== null && $tldrValue !== '') {
+                $this->addTldrComment($tldrValue);
             }
 
-            /** @var array[] $addCommentResponse */
-            $addCommentResponse = Pr0grammApi::Comment()->add($this->message->itemId, $tldrValue, $this->message->messageId);
-
-            // Check if Comment was added successfully
-            $commentExists = collect($addCommentResponse['comments'])->firstWhere('id', $addCommentResponse['commentId']);
-
-            // Comment exists on item
-            if ($commentExists) {
-                $this->message->update(['repliedToComment' => true, 'tldrValue' => $tldrValue, 'replyCommentId' => $addCommentResponse['commentId']]);
-            }
         } catch (RequestException $e) {
             if ($e->response->failed() && $e->response->status() == 429) {
                 // Rate Limit Reached. Release the Job in 30 seconds back into the queue
@@ -87,11 +72,46 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         }
     }
 
+    /**
+     * @throws RequestException
+     */
+    protected function getCommentToSummarize(array $comment): ?array
+    {
+        if ($this->commentEndsWithPattern($this->message->message)) {
+            return $comment;
+        }
+
+        $parentId = $comment['parent'];
+        /** @var array[] $postInfo */
+        $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
+
+        return collect($postInfo['comments'])->firstWhere('id', $parentId);
+    }
+
+    protected function addTldrComment(string $tldrValue): void
+    {
+        $addCommentResponse = Pr0grammApi::Comment()->add($this->message->itemId, $tldrValue, $this->message->messageId);
+
+        /**
+         * @var array $comments
+         * */
+        $comments = $addCommentResponse['comments'];
+
+        $commentExists = collect($comments)->firstWhere('id', $addCommentResponse['commentId']);
+
+        if ($commentExists) {
+            $this->message->update([
+                'repliedToComment' => true,
+                'tldrValue' => $tldrValue,
+                'replyCommentId' => $addCommentResponse['commentId'],
+            ]);
+        }
+    }
+
     protected function getTldrValue(string $comment): ?string
     {
         try {
             $client = OpenAI::client(config('services.openai.api_key'));
-
             $response = $client->chat()->create([
                 'model' => 'gpt-3.5-turbo',
                 'messages' => [
@@ -104,7 +124,6 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             } else {
                 $this->fail('Could not create TLDR comment. No stop finish reason.');
             }
-
         } catch (OpenAI\Exceptions\ErrorException $errorException) {
             // Model is currently overloaded
             if ($errorException->getCode() === 503) {
@@ -137,6 +156,14 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     protected function commentIsMine(array $comment): bool
     {
-        return $comment['name'] == config('services.pr0gramm.username', 'TLDR');
+        return $comment['name'] === config('services.pr0gramm.username', 'TLDR');
+    }
+
+    protected function commentEndsWithPattern(string $comment): bool
+    {
+        // Pattern: Comments ends with @tldr but has at least 200 characters
+        $endsWithPattern = '/^.{200,}@tldr$/i';
+
+        return (bool) preg_match($endsWithPattern, $comment);
     }
 }
