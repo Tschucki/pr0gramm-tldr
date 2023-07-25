@@ -17,29 +17,20 @@ class SyncMessagesCommand extends Command
     {
         try {
             $this->info('Checking if logged in');
-            if (Pr0grammApi::loggedIn()['loggedIn']) {
-                $this->info('Logged in!');
-                $this->info('Fetching Messages');
-
-                $comments = Pr0grammApi::Inbox()->comments()['messages'];
-
-                $this->info('Syncing Comments');
-
-                $this->withProgressBar($comments, function ($comment) {
-                    // Comment Matches pattern has not been replied to
-                    if ($comment['name'] != 'TLDR' &&
-                        $comment['blocked'] == false &&
-                        $this->commentMatchesPattern($comment['message']) &&
-                        Message::where('messageId', $comment['id'])->where('repliedToComment', true)->doesntExist()) {
-                        Message::firstOrCreate(['messageId' => $comment['id']], $comment);
-                    }
-                });
-
-            } else {
+            if (! Pr0grammApi::loggedIn()['loggedIn']) {
                 $this->error('Could not login!');
 
                 return CommandAlias::FAILURE;
             }
+
+            $this->info('Logged in!');
+            $this->info('Fetching Messages');
+
+            $comments = Pr0grammApi::Inbox()->comments()['messages'];
+
+            $this->info('Syncing Comments');
+
+            $this->syncComments($comments);
 
         } catch (\Throwable $e) {
             $this->error('Error: '.$e->getMessage());
@@ -52,11 +43,35 @@ class SyncMessagesCommand extends Command
         return CommandAlias::SUCCESS;
     }
 
+    protected function syncComments(array $comments): void
+    {
+        $this->withProgressBar($comments, function ($comment) {
+            if ($this->isValidComment($comment)) {
+                Message::firstOrCreate(['messageId' => $comment['id']], $comment);
+            }
+        });
+    }
+
+    protected function isValidComment(array $comment): bool
+    {
+        return $comment['name'] !== 'TLDR'
+            && ! $comment['blocked']
+            && $this->commentMatchesPattern($comment['message'])
+            && Message::where('messageId', $comment['id'])->where('repliedToComment', true)->doesntExist();
+    }
+
     protected function commentMatchesPattern(string $comment): bool
     {
-        // Pattern: Comment starts with @tldr
-        $pattern = '/^@tldr/i';
+        return $this->commentStartsWithPattern($comment) || $this->commentEndsWithPattern($comment);
+    }
 
-        return boolval(preg_match($pattern, $comment));
+    protected function commentStartsWithPattern(string $comment): bool
+    {
+        return (bool) preg_match('/^@tldr/i', $comment);
+    }
+
+    protected function commentEndsWithPattern(string $comment): bool
+    {
+        return (bool) preg_match('/^.{200,}@tldr$/i', $comment);
     }
 }
