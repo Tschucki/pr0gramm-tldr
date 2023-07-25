@@ -72,6 +72,6 @@ class SyncMessagesCommand extends Command
 
     protected function commentEndsWithPattern(string $comment): bool
     {
-        return (bool) preg_match('/^.{200,}@tldr$/i', $comment);
+        return (bool) preg_match('/^.{200,}.*@tldr\s*$/is', $comment);
     }
 }

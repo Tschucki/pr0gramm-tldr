@@ -162,7 +162,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
     protected function commentEndsWithPattern(string $comment): bool
     {
         // Pattern: Comments ends with @tldr but has at least 200 characters
-        $endsWithPattern = '/^.{200,}@tldr$/i';
+        $endsWithPattern = '/^.{200,}.*@tldr\s*$/is';
 
         return (bool) preg_match($endsWithPattern, $comment);
     }
