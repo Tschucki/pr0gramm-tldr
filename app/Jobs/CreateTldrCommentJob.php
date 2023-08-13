@@ -20,9 +20,14 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public Message $message;
 
-    private string $basePrompt;
+    protected string $basePrompt;
 
-    private string $notLongEnoughText = 'Der Kommentar ist nicht lang genug. Den Text kannst du selbst zusammenfassen.';
+    protected array $notLongEnoughTexts = [
+        'Der Kommentar ist nicht lang genug. Den Text kannst du selbst zusammenfassen.',
+        'Der Kommentar ist nicht lang genug. Den Text kannst du selbst zusammenfassen. Das schaffst sogar du.',
+        'Der Kommentar ist nicht lang genug. Fettbauch.',
+        'Der Kommentar ist nicht lang genug. Wackelwampe.',
+    ];
 
     public function uniqueId(): string
     {
@@ -54,13 +59,29 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
                 return;
             }
 
+            $tldrValue = null;
+
             if ($this->commentIsLongEnough($commentToSummarize['content'])) {
-                $tldrValue = "TLDR: \n".$this->getTldrValue($commentToSummarize['content']);
+                $summary = $this->getTldrValue($commentToSummarize['content']);
+                if ($summary !== null && $summary !== '' && Str::wordCount($summary) > 5) {
+                    $tldrValue = "TLDR: \n".$summary;
+                }
             } else {
-                $tldrValue = $this->notLongEnoughText;
+                $tldrValue = $this->notLongEnoughTexts[array_rand($this->notLongEnoughTexts)];
             }
 
             if ($tldrValue !== null && $tldrValue !== '') {
+
+                // Check if tldrValue is identical to another summary on the same post
+                $otherTldrComments = Message::where('itemId', $this->message->itemId)
+                    ->where('messageId', '!=', $this->message->messageId)
+                    ->where('tldrValue', $tldrValue)
+                    ->first();
+
+                if ($otherTldrComments !== null) {
+                    $tldrValue = ' https://pr0gramm.com/new/'.$this->message->itemId.':comment'.$otherTldrComments->messageId;
+                }
+
                 $this->addTldrComment($tldrValue);
             }
 
