@@ -27,6 +27,8 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         'Der Kommentar ist nicht lang genug. Den Text kannst du selbst zusammenfassen. Das schaffst sogar du.',
         'Der Kommentar ist nicht lang genug. Fettbauch.',
         'Der Kommentar ist nicht lang genug. Wackelwampe.',
+        'Der Kommentar ist nicht lang genug. Genau so wie dein Pimmel.',
+        'Der Kommentar ist nicht lang genug. Penner.',
     ];
 
     public function uniqueId(): string
