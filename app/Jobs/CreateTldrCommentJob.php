@@ -33,7 +33,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     public function uniqueId(): string
     {
-        return (string) $this->message->messageId;
+        return (string)$this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -49,7 +49,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
             $comment = collect($postInfo['comments'])->firstWhere('id', $this->message->messageId);
 
-            if (! $comment) {
+            if (!$comment) {
                 return;
             }
             /**
@@ -57,7 +57,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
              * */
             $commentToSummarize = $this->getCommentToSummarize($comment);
 
-            if (! $commentToSummarize || $this->commentIsMine($commentToSummarize)) {
+            if (!$commentToSummarize || $this->commentIsMine($commentToSummarize)) {
                 return;
             }
 
@@ -66,7 +66,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             if ($this->commentIsLongEnough($commentToSummarize['content'])) {
                 $summary = $this->getTldrValue($commentToSummarize['content']);
                 if ($summary !== null && $summary !== '' && Str::wordCount($summary) > 5) {
-                    $tldrValue = "TLDR: \n".$summary;
+                    $tldrValue = "TLDR: \n" . $summary;
                 }
             } else {
                 $tldrValue = $this->notLongEnoughTexts[array_rand($this->notLongEnoughTexts)];
@@ -81,7 +81,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
                     ->first();
 
                 if ($otherTldrComments !== null) {
-                    $tldrValue = ' https://pr0gramm.com/new/'.$this->message->itemId.':comment'.$otherTldrComments->messageId;
+                    $tldrValue = ' https://pr0gramm.com/new/' . $this->message->itemId . ':comment' . $otherTldrComments->messageId;
                 }
 
                 $this->addTldrComment($tldrValue);
@@ -136,9 +136,9 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         try {
             $client = OpenAI::client(config('services.openai.api_key'));
             $response = $client->chat()->create([
-                'model' => 'gpt-4',
+                'model' => $this->getGptModel($comment),
                 'messages' => [
-                    ['role' => 'user', 'content' => $this->basePrompt.$comment],
+                    ['role' => 'user', 'content' => $this->basePrompt . $comment],
                 ],
             ]);
 
@@ -164,6 +164,15 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         return Str::wordCount($comment) >= 40;
     }
 
+    protected function getGptModel(string $comment): string
+    {
+        $iWordCount = Str::wordCount($comment);
+        if ($iWordCount > 3000) {
+            return 'gpt-3.5-turbo-16k';
+        }
+        return 'gpt-3.5-turbo';
+    }
+
     protected function sanitizeContent(string $content): string
     {
         return $this->replaceAtMentions($content);
@@ -187,6 +196,6 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         // Pattern: Comments ends with @tldr but has at least 200 characters
         $endsWithPattern = '/^.{200,}.*@tldr\s*$/is';
 
-        return (bool) preg_match($endsWithPattern, $comment);
+        return (bool)preg_match($endsWithPattern, $comment);
     }
 }
