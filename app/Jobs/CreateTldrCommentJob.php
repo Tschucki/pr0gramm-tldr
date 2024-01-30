@@ -136,7 +136,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         try {
             $client = OpenAI::client(config('services.openai.api_key'));
             $response = $client->chat()->create([
-                'model' => 'gpt-3.5-turbo',
+                'model' => 'gpt-4',
                 'messages' => [
                     ['role' => 'user', 'content' => $this->basePrompt.$comment],
                 ],
