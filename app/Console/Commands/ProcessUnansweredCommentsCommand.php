@@ -29,7 +29,7 @@ class ProcessUnansweredCommentsCommand extends Command
     {
         $this->info('Processing old comments...');
 
-        $comments = \App\Models\Message::where('tldrValue', null)->where('created_at', '>', now())->get();
+        $comments = Message::where('tldrValue', null)->where('created_at', '>', now()->subDays(3))->get();
 
         $this->info('Found ' . count($comments) . ' comments.');
         $this->info('Dispatching jobs...');
