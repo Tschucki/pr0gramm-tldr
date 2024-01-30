@@ -52,9 +52,6 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             if (! $comment) {
                 return;
             }
-
-            if($comment->deleted
-
             /**
              * @var array $commentToSummarize
              * */
