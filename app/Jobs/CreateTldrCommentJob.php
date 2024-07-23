@@ -3,6 +3,7 @@
 namespace App\Jobs;
 
 use App\Models\Message;
+use GuzzleHttp\Client;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldBeUnique;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -10,11 +11,13 @@ use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use OpenAI;
+use thiagoalessio\TesseractOCR\TesseractOCR;
 use Tschucki\Pr0grammApi\Facades\Pr0grammApi;
 
-class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
+class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
@@ -29,11 +32,21 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         'Der Kommentar ist nicht lang genug. Wackelwampe.',
         'Der Kommentar ist nicht lang genug. Genau so wie dein Pimmel.',
         'Der Kommentar ist nicht lang genug. Penner.',
+        'Der Kommentar ist nicht lang genug. Du Lutscher',
+        'Der Kommentar ist nicht lang genug. Ich konnte zwischen den Zeilen aber lesen, dass es um deine Mama ging.',
+        'Etzala reichts. Getrollt wird ned.',
+        'TLDR: https://www.youtube.com/watch?v=8ybW48rKBME',
+        'TLDR: https://youtu.be/fPaDlNPbDSM?si=oHa7R_hryFNY4kbY&t=114'
+    ];
+
+    protected array $notLongEnoughPersonalTexts = [
+        'Da steht der Schniedel von $name ist winzig. Kann das jemand bestätigen?',
+        'TLDR: $name ist hässlich.',
     ];
 
     public function uniqueId(): string
     {
-        return (string)$this->message->messageId;
+        return (string) $this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -49,42 +62,50 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
             $comment = collect($postInfo['comments'])->firstWhere('id', $this->message->messageId);
 
-            if (!$comment) {
-                return;
-            }
-            /**
-             * @var array $commentToSummarize
-             * */
-            $commentToSummarize = $this->getCommentToSummarize($comment);
-
-            if (!$commentToSummarize || $this->commentIsMine($commentToSummarize)) {
+            if (! $comment) {
                 return;
             }
 
-            $tldrValue = null;
-
-            if ($this->commentIsLongEnough($commentToSummarize['content'])) {
-                $summary = $this->getTldrValue($commentToSummarize['content']);
-                if ($summary !== null && $summary !== '' && Str::wordCount($summary) > 5) {
-                    $tldrValue = "TLDR: \n" . $summary;
-                }
+            // check if the comment has a parent
+            if ($comment['parent'] === 0) {
+                $this->summarizePost();
             } else {
-                $tldrValue = $this->notLongEnoughTexts[array_rand($this->notLongEnoughTexts)];
-            }
+                /**
+                 * @var array $commentToSummarize
+                 * */
+                $commentToSummarize = $this->getCommentToSummarize($comment);
 
-            if ($tldrValue !== null && $tldrValue !== '') {
-
-                // Check if tldrValue is identical to another summary on the same post
-                $otherTldrComments = Message::where('itemId', $this->message->itemId)
-                    ->where('messageId', '!=', $this->message->messageId)
-                    ->where('tldrValue', $tldrValue)
-                    ->first();
-
-                if ($otherTldrComments !== null) {
-                    $tldrValue = ' https://pr0gramm.com/new/' . $this->message->itemId . ':comment' . $otherTldrComments->messageId;
+                if (! $commentToSummarize || $this->commentIsMine($commentToSummarize)) {
+                    return;
                 }
 
-                $this->addTldrComment($tldrValue);
+                $tldrValue = null;
+
+                if ($this->commentIsLongEnough($commentToSummarize['content'])) {
+                    $summary = $this->getTldrValue($commentToSummarize['content']);
+                    if ($summary !== null && $summary !== '' && Str::wordCount($summary) > 5) {
+                        $tldrValue = "TLDR: \n".$summary;
+                    }
+                } else if (random_int(0, 2) === 0) {
+                    $tldrValue = $this->notLongEnoughTexts[array_rand($this->notLongEnoughTexts)];
+                } else {
+                    $tldrValue = $this->getPersonalizedNotLongEnoughText($this->message['name']);
+                }
+
+                if ($tldrValue !== null && $tldrValue !== '') {
+
+                    // Check if tldrValue is identical to another summary on the same post
+                    $otherTldrComments = Message::where('itemId', $this->message->itemId)
+                        ->where('messageId', '!=', $this->message->messageId)
+                        ->where('tldrValue', $tldrValue)
+                        ->first();
+
+                    if ($otherTldrComments !== null) {
+                        $tldrValue = ' https://pr0gramm.com/new/'.$this->message->itemId.':comment'.$otherTldrComments->messageId;
+                    }
+
+                    $this->addTldrComment($tldrValue);
+                }
             }
 
         } catch (RequestException $e) {
@@ -93,6 +114,54 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
                 $this->release(30);
             }
         }
+    }
+
+    protected function getPersonalizedNotLongEnoughText(string $name): string
+    {
+        $randomText = $this->notLongEnoughPersonalTexts[array_rand($this->notLongEnoughPersonalTexts)];
+        return Str::replace('$name', $name, $randomText);
+    }
+
+    protected function summarizePost()
+    {
+        // download the image and get the text from ocr if the post is an image
+        // check
+        $image = $this->message->image;
+        $imageUrl = 'https://img.pr0gramm.com/'.$image;
+        if ($imageUrl) {
+            $imageText = $this->getImageText($imageUrl);
+            if ($imageText) {
+                $tldrValue = $this->getTldrValue($imageText);
+                if ($tldrValue !== null && $tldrValue !== '' && Str::wordCount($tldrValue) > 5) {
+                    $this->addTldrComment("TLDR: \n".$tldrValue);
+                }
+            }
+        }
+    }
+
+    protected function getImageText(string $imageUrl): ?string
+    {
+        try {
+            $client = new Client;
+            $response = $client->get($imageUrl);
+            $image = $response->getBody()->getContents();
+            $fileNameFragments = explode('/', $this->message->image);
+            $fileName = end($fileNameFragments);
+
+            // check if the image is a image
+            if (! Str::endsWith($fileName, ['.jpg', '.jpeg', '.png', '.tiff'])) {
+                return null;
+            }
+
+            Storage::put($fileName, $image);
+
+            return (new TesseractOCR(Storage::path($fileName)))
+                ->run();
+        } catch (\Throwable $e) {
+            $this->release(30);
+        }
+
+        return null;
     }
 
     /**
@@ -138,7 +207,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
             $response = $client->chat()->create([
                 'model' => $this->getGptModel($comment),
                 'messages' => [
-                    ['role' => 'user', 'content' => $this->basePrompt . $comment],
+                    ['role' => 'user', 'content' => $this->basePrompt.$comment],
                 ],
             ]);
 
@@ -166,11 +235,7 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
 
     protected function getGptModel(string $comment): string
     {
-        $iWordCount = Str::wordCount($comment);
-        if ($iWordCount > 3000) {
-            return 'gpt-3.5-turbo-16k';
-        }
-        return 'gpt-3.5-turbo';
+        return 'gpt-4o-mini';
     }
 
     protected function sanitizeContent(string $content): string
@@ -196,6 +261,6 @@ class CreateTldrCommentJob implements ShouldQueue, ShouldBeUnique
         // Pattern: Comments ends with @tldr but has at least 200 characters
         $endsWithPattern = '/^.{200,}.*@tldr\s*$/is';
 
-        return (bool)preg_match($endsWithPattern, $comment);
+        return (bool) preg_match($endsWithPattern, $comment);
     }
 }

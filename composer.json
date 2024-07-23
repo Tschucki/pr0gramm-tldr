@@ -14,6 +14,7 @@
         "laravel/tinker": "^2.8",
         "openai-php/client": "^0.6.4",
         "predis/predis": "^2.2",
+        "thiagoalessio/tesseract_ocr": "^2.13",
         "tightenco/ziggy": "^1.0",
         "tschucki/laravel-pr0gramm-api": "^1.0"
     },

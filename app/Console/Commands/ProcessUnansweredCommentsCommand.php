@@ -31,7 +31,7 @@ class ProcessUnansweredCommentsCommand extends Command
 
         $comments = Message::where('tldrValue', null)->where('created_at', '>', now()->subDays(3))->get();
 
-        $this->info('Found ' . count($comments) . ' comments.');
+        $this->info('Found '.count($comments).' comments.');
         $this->info('Dispatching jobs...');
         $this->withProgressBar($comments, function (Message $comment) {
             CreateTldrCommentJob::dispatch($comment);
