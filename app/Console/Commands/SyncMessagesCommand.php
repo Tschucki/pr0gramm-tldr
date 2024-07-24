@@ -47,6 +47,21 @@ class SyncMessagesCommand extends Command
     {
         $this->withProgressBar($comments, function ($comment) {
             if ($this->isValidComment($comment)) {
+                $posts = Pr0grammApi::Post()->get([
+                    "id" => $comment['itemId'],
+                    "flags" => 31
+                ]);
+
+                $post = collect($posts->json()["items"])->filter(function (array $post) use($comment) {
+                    return $post["id"] === $comment['itemId'];
+                });
+
+                $image = $post->first()["image"];
+
+                if($image !== null) {
+                    $comment["image"] = $image;
+                }
+
                 Message::firstOrCreate(['messageId' => $comment['id']], $comment);
             }
         });
