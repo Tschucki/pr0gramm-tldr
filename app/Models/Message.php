@@ -23,6 +23,7 @@ class Message extends Model
         'repliedToComment',
         'tldrValue',
         'replyCommentId',
+        'image'
     ];
 
     protected $casts = [
