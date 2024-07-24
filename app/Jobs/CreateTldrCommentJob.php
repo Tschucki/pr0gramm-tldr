@@ -46,7 +46,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 
     public function uniqueId(): string
     {
-        return (string) $this->message->messageId;
+        return (string)$this->message->messageId;
     }
 
     public function __construct(Message $message)
@@ -62,12 +62,12 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
             $postInfo = Pr0grammApi::Post()->info($this->message->itemId);
             $comment = collect($postInfo['comments'])->firstWhere('id', $this->message->messageId);
 
-            if (! $comment) {
+            if (!$comment) {
                 return;
             }
 
             // check if the comment has a parent
-            if ($comment['parent'] === 0) {
+            if ($comment['parent'] === 0 && $this->commentOnlyContainsMention($this->message->message)) {
                 $this->summarizePost();
             } else {
                 /**
@@ -75,7 +75,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
                  * */
                 $commentToSummarize = $this->getCommentToSummarize($comment);
 
-                if (! $commentToSummarize || $this->commentIsMine($commentToSummarize)) {
+                if (!$commentToSummarize || $this->commentIsMine($commentToSummarize)) {
                     return;
                 }
 
@@ -84,7 +84,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
                 if ($this->commentIsLongEnough($commentToSummarize['content'])) {
                     $summary = $this->getTldrValue($commentToSummarize['content']);
                     if ($summary !== null && $summary !== '' && Str::wordCount($summary) > 5) {
-                        $tldrValue = "TLDR: \n".$summary;
+                        $tldrValue = "TLDR: \n" . $summary;
                     }
                 } else if (random_int(0, 2) === 0) {
                     $tldrValue = $this->notLongEnoughTexts[array_rand($this->notLongEnoughTexts)];
@@ -101,7 +101,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
                         ->first();
 
                     if ($otherTldrComments !== null) {
-                        $tldrValue = ' https://pr0gramm.com/new/'.$this->message->itemId.':comment'.$otherTldrComments->messageId;
+                        $tldrValue = ' https://pr0gramm.com/new/' . $this->message->itemId . ':comment' . $otherTldrComments->messageId;
                     }
 
                     $this->addTldrComment($tldrValue);
@@ -116,25 +116,30 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
         }
     }
 
+    protected function commentOnlyContainsMention(string $comment): bool
+    {
+        $comment = trim($comment);
+
+        return Str::lower($comment) === '@tldr';
+    }
+
     protected function getPersonalizedNotLongEnoughText(string $name): string
     {
         $randomText = $this->notLongEnoughPersonalTexts[array_rand($this->notLongEnoughPersonalTexts)];
         return Str::replace('$name', $name, $randomText);
     }
 
-    protected function summarizePost()
+    protected function summarizePost(): void
     {
         // download the image and get the text from ocr if the post is an image
         // check
         $image = $this->message->image;
-        $imageUrl = 'https://img.pr0gramm.com/'.$image;
-        if ($imageUrl) {
-            $imageText = $this->getImageText($imageUrl);
-            if ($imageText) {
-                $tldrValue = $this->getTldrValue($imageText);
-                if ($tldrValue !== null && $tldrValue !== '' && Str::wordCount($tldrValue) > 5) {
-                    $this->addTldrComment("TLDR: \n".$tldrValue);
-                }
+        $imageUrl = 'https://img.pr0gramm.com/' . $image;
+        $imageText = $this->getImageText($imageUrl);
+        if ($imageText && Str::wordCount($imageText) >= 40) {
+            $tldrValue = $this->getTldrValue($imageText);
+            if ($tldrValue !== null && $tldrValue !== '' && Str::wordCount($tldrValue) > 5) {
+                $this->addTldrComment("TLDR: \n" . $tldrValue);
             }
         }
     }
@@ -149,7 +154,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
             $fileName = end($fileNameFragments);
 
             // check if the image is a image
-            if (! Str::endsWith($fileName, ['.jpg', '.jpeg', '.png', '.tiff'])) {
+            if (!Str::endsWith($fileName, ['.jpg', '.jpeg', '.png', '.tiff'])) {
                 return null;
             }
 
@@ -207,7 +212,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
             $response = $client->chat()->create([
                 'model' => $this->getGptModel($comment),
                 'messages' => [
-                    ['role' => 'user', 'content' => $this->basePrompt.$comment],
+                    ['role' => 'user', 'content' => $this->basePrompt . $comment],
                 ],
             ]);
 
@@ -261,6 +266,6 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
         // Pattern: Comments ends with @tldr but has at least 200 characters
         $endsWithPattern = '/^.{200,}.*@tldr\s*$/is';
 
-        return (bool) preg_match($endsWithPattern, $comment);
+        return (bool)preg_match($endsWithPattern, $comment);
     }
 }
