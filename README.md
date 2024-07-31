@@ -6,10 +6,8 @@ This bot was designed to help users quickly generate concise summaries of length
 
 [Post to usage explanation (NSFP)](https://pr0gramm.com/new/5783149)
 
-## Future Plans
-
-### OCR Text Extraction
-The application has future plans to incorporate Optical Character Recognition (OCR) technology to extract text from images. This will be particularly useful for summarizing comments that do not have a parent comment, allowing the bot to analyze and summarize text content from images, such as those found in Pr0texter posts.
+### OCR
+The application is also capable of Optical Character Recognition (OCR) technology to extract text from images and summarize it.
 
 ## LICENSE
 This project is licensed under the AGPLv3 License - see the [LICENSE](LICENSE) file for details
