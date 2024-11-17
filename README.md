@@ -9,5 +9,8 @@ This bot was designed to help users quickly generate concise summaries of length
 ### OCR
 The application is also capable of Optical Character Recognition (OCR) technology to extract text from images and summarize it.
 
+### Video Subtitles
+The bot can also process video subtitles to generate a summary of the video content.
+
 ## LICENSE
 This project is licensed under the AGPLv3 License - see the [LICENSE](LICENSE) file for details

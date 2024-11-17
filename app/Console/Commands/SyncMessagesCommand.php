@@ -48,18 +48,37 @@ class SyncMessagesCommand extends Command
         $this->withProgressBar($comments, function ($comment) {
             if ($this->isValidComment($comment)) {
                 $posts = Pr0grammApi::Post()->get([
-                    "id" => $comment['itemId'],
-                    "flags" => 31
+                    'id' => $comment['itemId'],
+                    'flags' => 31,
                 ]);
 
-                $post = collect($posts->json()["items"])->filter(function (array $post) use($comment) {
-                    return $post["id"] === $comment['itemId'];
+                $post = collect($posts->json()['items'])->filter(function (array $post) use ($comment) {
+                    return $post['id'] === $comment['itemId'];
                 });
 
-                $image = $post->first()["image"];
+                $image = $post->first()['image'];
 
-                if($image !== null) {
-                    $comment["image"] = $image;
+                $subtitles = $post->first()['subtitles'] ?? null;
+
+                if ($image !== null) {
+                    $comment['image'] = $image;
+                }
+
+                if ($subtitles !== null) {
+                    $subtitle = null;
+
+                    foreach ($subtitles as $sub) {
+                        if ($sub['isDefault']) {
+                            $subtitle = $sub['path'];
+                            break;
+                        }
+                    }
+
+                    if ($subtitle === null) {
+                        $subtitle = $subtitles[0]['path'] ?? null;
+                    }
+
+                    $comment['subtitle'] = $subtitle;
                 }
 
                 Message::firstOrCreate(['messageId' => $comment['id']], $comment);
