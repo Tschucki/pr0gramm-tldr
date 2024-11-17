@@ -58,7 +58,7 @@ class SyncMessagesCommand extends Command
 
                 $image = $post->first()['image'];
 
-                $subtitles = $post->first()['subtitles'] ?? null;
+                $subtitles = isset($post->first()['subtitles']) ? $post->first()['subtitles'] : null;
 
                 if ($image !== null) {
                     $comment['image'] = $image;
@@ -68,14 +68,14 @@ class SyncMessagesCommand extends Command
                     $subtitle = null;
 
                     foreach ($subtitles as $sub) {
-                        if ($sub['isDefault']) {
+                        if (isset($sub['isDefault']) && $sub['isDefault']) {
                             $subtitle = $sub['path'];
                             break;
                         }
                     }
 
                     if ($subtitle === null) {
-                        $subtitle = $subtitles[0]['path'] ?? null;
+                        $subtitle = isset($subtitles[0]['path']) ? $subtitles[0]['path'] : null;
                     }
 
                     $comment['subtitle'] = $subtitle;
