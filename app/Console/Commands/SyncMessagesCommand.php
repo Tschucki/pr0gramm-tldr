@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Message;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\Console\Command\Command as CommandAlias;
 use Tschucki\Pr0grammApi\Facades\Pr0grammApi;
 
@@ -34,6 +35,7 @@ class SyncMessagesCommand extends Command
 
         } catch (\Throwable $e) {
             $this->error('Error: '.$e->getMessage());
+            Log::error($e);
 
             return CommandAlias::FAILURE;
         }
