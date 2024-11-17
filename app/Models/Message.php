@@ -24,6 +24,7 @@ class Message extends Model
         'tldrValue',
         'replyCommentId',
         'image',
+        'subtitle',
     ];
 
     protected $casts = [
