@@ -58,7 +58,7 @@ class SyncMessagesCommand extends Command
                     return $post['id'] === $comment['itemId'];
                 });
 
-                $image = $post->first()['image'];
+                $image = $post->first()['image'] ?? null;
 
                 $subtitles = isset($post->first()['subtitles']) ? $post->first()['subtitles'] : null;
 
