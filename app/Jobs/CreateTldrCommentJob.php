@@ -37,11 +37,14 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
         'Etzala reichts. Getrollt wird ned.',
         'TLDR: https://www.youtube.com/watch?v=8ybW48rKBME',
         'TLDR: https://youtu.be/fPaDlNPbDSM?si=oHa7R_hryFNY4kbY&t=114',
+        'Den Text kannst du ja wohl selber lesen. Du hast auch nur einen Kopf, damit es dir nicht in den Hals regnet.',
     ];
 
     protected array $notLongEnoughPersonalTexts = [
         'Da steht der Schniedel von $name ist winzig. Kann das jemand bestätigen?',
         'TLDR: $name ist hässlich.',
+        'TLDR: Alle hassen $name.',
+        'TLDR: $name hat gerade so viel IQ zum Atmen.',
     ];
 
     public function uniqueId(): string
