@@ -154,7 +154,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 
             if (! Str::endsWith($fileName, ['.jpg', '.jpeg', '.png', '.tiff'])) {
                 if ($this->message->subtitle) {
-                    $response = $client->get('https://pr0gramm.com/data/images/'.$this->message->subtitle);
+                    $response = $client->get('https://img.pr0gramm.com/' . $this->message->subtitle);
                     if ($response->getStatusCode() === 200) {
                         return $response->getBody()->getContents();
                     }
