@@ -38,13 +38,21 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
         'TLDR: https://www.youtube.com/watch?v=8ybW48rKBME',
         'TLDR: https://youtu.be/fPaDlNPbDSM?si=oHa7R_hryFNY4kbY&t=114',
         'Den Text kannst du ja wohl selber lesen. Du hast auch nur einen Kopf, damit es dir nicht in den Hals regnet.',
+        'Trottel, der Kommentar ist nicht lang genug. Du kannst das besser.',
     ];
+
+    protected bool $isFunComment = false;
 
     protected array $notLongEnoughPersonalTexts = [
         'Da steht der Schniedel von $name ist winzig. Kann das jemand bestätigen?',
+        'TLDR: $name hat einen kleinen Schnipi. Steht hier schwarz auf weiß.',
+        'TLDR: $name braucht eine Lupe, um seinen eigenen Pimmel zu finden.',
+        'TLDR: $name hat einen Männerbusen. Aber der steht dir gut.',
         'TLDR: $name ist hässlich.',
         'TLDR: Alle hassen $name.',
         'TLDR: $name hat gerade so viel IQ zum Atmen.',
+        'TLDR: $name ist ein Lappen.',
+        '$name kann nicht lesen.',
     ];
 
     public function uniqueId(): string
@@ -91,8 +99,10 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
                     }
                 } elseif (random_int(0, 2) === 0) {
                     $tldrValue = $this->notLongEnoughTexts[array_rand($this->notLongEnoughTexts)];
+                    $this->isFunComment = true;
                 } else {
                     $tldrValue = $this->getPersonalizedNotLongEnoughText($this->message['name']);
+                    $this->isFunComment = true;
                 }
 
                 if ($tldrValue !== null && $tldrValue !== '') {
@@ -157,7 +167,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 
             if (! Str::endsWith($fileName, ['.jpg', '.jpeg', '.png', '.tiff'])) {
                 if ($this->message->subtitle) {
-                    $response = $client->get('https://img.pr0gramm.com/' . $this->message->subtitle);
+                    $response = $client->get('https://pr0gramm.com/data/images/'.$this->message->subtitle);
                     if ($response->getStatusCode() === 200) {
                         return $response->getBody()->getContents();
                     }
@@ -204,6 +214,8 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 
         $commentExists = collect($comments)->firstWhere('id', $addCommentResponse['commentId']);
 
+        Pr0grammApi::Comment()->fav($addCommentResponse['commentId']);
+
         if ($commentExists) {
             $this->message->update([
                 'repliedToComment' => true,
@@ -218,7 +230,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
         try {
             $client = OpenAI::client(config('services.openai.api_key'));
             $response = $client->chat()->create([
-                'model' => $this->getGptModel($comment),
+                'model' => $this->getGptModel(),
                 'messages' => [
                     ['role' => 'user', 'content' => $this->basePrompt.$comment],
                 ],
@@ -246,9 +258,9 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
         return Str::wordCount($comment) >= 40;
     }
 
-    protected function getGptModel(string $comment): string
+    protected function getGptModel(): string
     {
-        return 'gpt-4o-mini';
+        return 'gpt-4.1-nano';
     }
 
     protected function sanitizeContent(string $content): string

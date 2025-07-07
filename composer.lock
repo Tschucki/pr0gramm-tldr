@@ -6077,20 +6077,20 @@
         },
         {
             "name": "tschucki/laravel-pr0gramm-api",
-            "version": "1.0.4",
+            "version": "1.0.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/Tschucki/laravel-pr0gramm-api.git",
-                "reference": "8e5d098c65ee3f847081f03e8e37fe8b0e541972"
+                "reference": "cfcfbdd5fd01f514ccc8b693a74b3e78f5ad962a"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/Tschucki/laravel-pr0gramm-api/zipball/8e5d098c65ee3f847081f03e8e37fe8b0e541972",
-                "reference": "8e5d098c65ee3f847081f03e8e37fe8b0e541972",
+                "url": "https://api.github.com/repos/Tschucki/laravel-pr0gramm-api/zipball/cfcfbdd5fd01f514ccc8b693a74b3e78f5ad962a",
+                "reference": "cfcfbdd5fd01f514ccc8b693a74b3e78f5ad962a",
                 "shasum": ""
             },
             "require": {
-                "illuminate/contracts": "^10.0",
+                "illuminate/contracts": "^10.0|^11.0|^12.0",
                 "php": "^8.1",
                 "spatie/laravel-package-tools": "^1.14.0"
             },
@@ -6109,12 +6109,12 @@
             "type": "library",
             "extra": {
                 "laravel": {
-                    "providers": [
-                        "Tschucki\\Pr0grammApi\\Pr0grammApiServiceProvider"
-                    ],
                     "aliases": {
                         "Pr0grammApi": "Tschucki\\Pr0grammApi\\Facades\\Pr0grammApi"
-                    }
+                    },
+                    "providers": [
+                        "Tschucki\\Pr0grammApi\\Pr0grammApiServiceProvider"
+                    ]
                 }
             },
             "autoload": {
@@ -6143,9 +6143,9 @@
             ],
             "support": {
                 "issues": "https://github.com/Tschucki/laravel-pr0gramm-api/issues",
-                "source": "https://github.com/Tschucki/laravel-pr0gramm-api/tree/v1.0.4"
+                "source": "https://github.com/Tschucki/laravel-pr0gramm-api/tree/v1.0.6"
             },
-            "time": "2024-01-13T21:06:43+00:00"
+            "time": "2025-07-07T15:35:16+00:00"
         },
         {
             "name": "vlucas/phpdotenv",
@@ -9189,12 +9189,12 @@
     ],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {},
     "prefer-stable": true,
     "prefer-lowest": false,
     "platform": {
         "php": "^8.1"
     },
-    "platform-dev": [],
+    "platform-dev": {},
     "plugin-api-version": "2.6.0"
 }
