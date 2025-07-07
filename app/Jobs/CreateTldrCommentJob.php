@@ -260,7 +260,7 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 
     protected function getGptModel(): string
     {
-        return 'gpt-4.1-nano';
+        return 'gpt-4o-mini';
     }
 
     protected function sanitizeContent(string $content): string
