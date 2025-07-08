@@ -214,7 +214,9 @@ class CreateTldrCommentJob implements ShouldBeUnique, ShouldQueue
 
         $commentExists = collect($comments)->firstWhere('id', $addCommentResponse['commentId']);
 
-        Pr0grammApi::Comment()->fav($addCommentResponse['commentId']);
+        if($this->isFunComment) {
+            Pr0grammApi::Comment()->fav($addCommentResponse['commentId']);
+        }
 
         if ($commentExists) {
             $this->message->update([
