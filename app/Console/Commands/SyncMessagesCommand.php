@@ -17,14 +17,6 @@ class SyncMessagesCommand extends Command
     public function handle(): int
     {
         try {
-            $this->info('Checking if logged in');
-            if (! Pr0grammApi::loggedIn()['loggedIn']) {
-                $this->error('Could not login!');
-
-                return CommandAlias::FAILURE;
-            }
-
-            $this->info('Logged in!');
             $this->info('Fetching Messages');
 
             $comments = Pr0grammApi::Inbox()->comments()['messages'];
